@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideal Gas Cycle Calculator</title>
+<style>
+:root{--blue:#153e75;--gold:#f4b41a;--bg:#eef3f8;--card:#fff;--muted:#5b6775;--danger:#b42318}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#17212b;padding:24px}
+.app{max-width:720px;margin:auto;background:var(--card);border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.12);overflow:hidden}
+header{background:var(--blue);color:white;padding:24px;text-align:center} header h1{margin:0 0 8px;font-size:26px} header p{margin:0;color:#dbe8f7}
+.tabs{display:flex;background:#dfe8f2;border-bottom:1px solid #c5d1de}.tab{flex:1;border:0;padding:14px 8px;font-size:16px;font-weight:bold;background:transparent;cursor:pointer}.tab.active{background:white;color:var(--blue);border-top:4px solid var(--gold)}
+.panel{display:none;padding:24px}.panel.active{display:block}.equation{background:#f7f9fc;border-left:4px solid var(--gold);padding:12px;margin-bottom:18px;color:#334155}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+label{font-weight:bold;display:block;margin-bottom:6px} .hint{font-size:12px;color:var(--muted);margin-top:5px}
+input{width:100%;padding:11px;border:1px solid #9fb0c2;border-radius:8px;font-size:16px} input[readonly]{background:#e9edf2;font-weight:bold;color:var(--blue)}
+.actions{display:flex;gap:10px;margin-top:20px}.actions button{border:0;border-radius:8px;padding:11px 18px;font-size:16px;font-weight:bold;cursor:pointer}.calc{background:var(--blue);color:white}.clear{background:#dfe6ee;color:#17212b}.error{min-height:20px;color:var(--danger);font-weight:bold;margin-top:12px}
+footer{text-align:center;padding:14px 20px;background:#f5f7fa;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>Ideal Gas Cycle Calculator</h1><p>Cold-air-standard thermal efficiency comparison</p></header>
+<div class="tabs">
+<button class="tab active" onclick="showCycle('otto',this)">Otto</button>
+<button class="tab" onclick="showCycle('diesel',this)">Diesel</button>
+<button class="tab" onclick="showCycle('brayton',this)">Brayton</button>
+</div>
+
+<section id="otto" class="panel active">
+<h2>Ideal Otto Cycle</h2><div class="equation">η = 1 − 1 / r<sup>k−1</sup></div>
+<div class="grid">
+<div><label for="or">Compression ratio, r</label><input id="or" type="number" step="any" placeholder="e.g., 8"><div class="hint">Must be greater than 1</div></div>
+<div><label for="ok">Specific heat ratio, k</label><input id="ok" type="number" step="0.01" value="1.40"></div>
+<div><label for="oe">Thermal efficiency</label><input id="oe" readonly></div>
+</div><div id="oerr" class="error"></div>
+<div class="actions"><button class="calc" onclick="calcOtto()">Calculate</button><button class="clear" onclick="clearCycle('otto')">Clear</button></div>
+</section>
+
+<section id="diesel" class="panel">
+<h2>Ideal Diesel Cycle</h2><div class="equation">η = 1 − [1 / r<sup>k−1</sup>] [(r<sub>c</sub><sup>k</sup> − 1) / (k(r<sub>c</sub> − 1))]</div>
+<div class="grid">
+<div><label for="dr">Compression ratio, r</label><input id="dr" type="number" step="any" placeholder="e.g., 18"></div>
+<div><label for="dc">Cutoff ratio, r<sub>c</sub></label><input id="dc" type="number" step="any" placeholder="e.g., 2"></div>
+<div><label for="dk">Specific heat ratio, k</label><input id="dk" type="number" step="0.01" value="1.40"></div>
+<div><label for="de">Thermal efficiency</label><input id="de" readonly></div>
+</div><div id="derr" class="error"></div>
+<div class="actions"><button class="calc" onclick="calcDiesel()">Calculate</button><button class="clear" onclick="clearCycle('diesel')">Clear</button></div>
+</section>
+
+<section id="brayton" class="panel">
+<h2>Ideal Brayton Cycle</h2><div class="equation">η = 1 − 1 / r<sub>p</sub><sup>(k−1)/k</sup></div>
+<div class="grid">
+<div><label for="bp">Pressure ratio, r<sub>p</sub></label><input id="bp" type="number" step="any" placeholder="e.g., 10"></div>
+<div><label for="bk">Specific heat ratio, k</label><input id="bk" type="number" step="0.01" value="1.40"></div>
+<div><label for="be">Thermal efficiency</label><input id="be" readonly></div>
+</div><div id="berr" class="error"></div>
+<div class="actions"><button class="calc" onclick="calcBrayton()">Calculate</button><button class="clear" onclick="clearCycle('brayton')">Clear</button></div>
+</section>
+<footer>Educational calculator for ideal, constant-specific-heat air-standard cycles.</footer>
+</div>
+<script>
+function n(id){return Number(document.getElementById(id).value)}
+function out(id,v){document.getElementById(id).value=v}
+function err(id,msg){document.getElementById(id).textContent=msg}
+function showCycle(id,btn){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.getElementById(id).classList.add('active');btn.classList.add('active')}
+function validK(k){return Number.isFinite(k)&&k>1}
+function calcOtto(){let r=n('or'),k=n('ok');err('oerr','');if(!(r>1)||!validK(k)){err('oerr','Enter a compression ratio greater than 1 and k greater than 1.');out('oe','');return}let eta=1-1/Math.pow(r,k-1);out('oe',(eta*100).toFixed(2)+' %')}
+function calcDiesel(){let r=n('dr'),rc=n('dc'),k=n('dk');err('derr','');if(!(r>1)||!(rc>1)||!validK(k)){err('derr','Enter r > 1, cutoff ratio > 1, and k > 1.');out('de','');return}let eta=1-(1/Math.pow(r,k-1))*((Math.pow(rc,k)-1)/(k*(rc-1)));if(!(eta>0&&eta<1)){err('derr','Inputs produce a nonphysical efficiency. Check the ratios.');out('de','');return}out('de',(eta*100).toFixed(2)+' %')}
+function calcBrayton(){let rp=n('bp'),k=n('bk');err('berr','');if(!(rp>1)||!validK(k)){err('berr','Enter a pressure ratio greater than 1 and k greater than 1.');out('be','');return}let eta=1-1/Math.pow(rp,(k-1)/k);out('be',(eta*100).toFixed(2)+' %')}
+function clearCycle(c){if(c==='otto'){out('or','');out('ok','1.40');out('oe','');err('oerr','');document.getElementById('or').focus()}if(c==='diesel'){out('dr','');out('dc','');out('dk','1.40');out('de','');err('derr','');document.getElementById('dr').focus()}if(c==='brayton'){out('bp','');out('bk','1.40');out('be','');err('berr','');document.getElementById('bp').focus()}}
+</script>
+</body>
+</html>

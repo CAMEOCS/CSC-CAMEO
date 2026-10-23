@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CarmenStirling - Interactive Stirling Engine</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;background:#0f172a;color:#0f172a;margin:0;padding:24px} .wrap{max-width:1100px;margin:auto}.card{background:#fff;border-radius:20px;padding:22px;margin-bottom:18px;box-shadow:0 12px 35px #0004}h1{margin:0;color:#ea580c}.sub{color:#64748b;margin:6px 0 18px}.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}.controls label{display:block;margin:12px 0;font-size:14px}.controls input{width:100%}button{border:0;border-radius:10px;padding:10px 18px;margin-right:8px;font-weight:700;cursor:pointer}.run{background:#ea580c;color:white}.reset{background:#e2e8f0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#f1f5f9;border-radius:12px;padding:10px}.big{font-size:28px;font-weight:800}.orange{color:#ea580c}.note{background:#eff6ff;border-left:4px solid #2563eb;padding:12px;border-radius:8px;font-size:13px}canvas{width:100%;background:#f8fafc;border-radius:14px}@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="wrap"><div class="card"><h1>CarmenStirling</h1><div class="sub">CAMEO | Gamma Stirling Engine Explorer · Developed by Dr. Carmen Cioc and Dr. Sorin Cioc</div><button class="run" id="toggle">Pause</button><button class="reset" id="reset">Reset</button></div>
+<div class="grid"><div><div class="card"><h2>Gamma Stirling Engine: Gas Motion & Two-Plane Crank Mechanism</h2><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px"><span style="background:#ffedd5;padding:6px 9px;border-radius:8px"><b>LEFT:</b> Displacer, moves working gas</span><span style="background:#dbeafe;padding:6px 9px;border-radius:8px"><b>RIGHT:</b> Power piston, sealed</span><span style="background:#f3e8ff;padding:6px 9px;border-radius:8px"><b>CENTER:</b> Enlarged gas path + regenerator · Rods shown in separate axial planes</span></div><canvas id="engine" width="650" height="400"></canvas><h3 id="stage" class="orange"></h3><div id="desc"></div><div style="margin-top:10px;padding:10px;background:#f5f3ff;border-radius:9px;font-size:13px"><b>Watch the enlarged gas path:</b> <span style="color:#dc2626">● hot gas</span> → <span style="color:#f59e0b">● regenerator</span> → <span style="color:#2563eb">● cold gas</span>. colored particles make the sealed working-gas motion easier to see. The enlarged passage and displacer clearance are intentionally schematic, not drawn to scale. The displacer moves the working gas between hot and cold regions; the separate power piston responds to gas pressure and produces useful work. The working gas remains sealed inside the engine.</div></div><div class="card"><h2>Live P-V Teaching Visualization</h2><div style="font-size:12px;color:#64748b;margin-bottom:8px">The mechanism and motion descriptions are synchronized. Dashed orange and solid blue linkages represent separate axial planes, so the rods do not collide.</div><canvas id="pv" width="650" height="320"></canvas></div></div>
+<div><div class="card controls"><h2>Design Inputs</h2><label>Hot-side temperature: <b id="thv">600 K</b><input id="th" type="range" min="350" max="1000" value="600" step="10"></label><label>Cold-side temperature: <b id="tcv">300 K</b><input id="tc" type="range" min="250" max="500" value="300" step="5"></label><h3 style="margin-bottom:4px">Power Piston</h3><label>Power piston bore: <b id="bv">40 mm</b><input id="bore" type="range" min="15" max="100" value="40"></label><label>Power piston stroke: <b id="sv">30 mm</b><input id="stroke" type="range" min="10" max="80" value="30"></label><h3 style="margin-bottom:4px">Displacer</h3><label>Displacer bore: <b id="dbv">55 mm</b><input id="dbore" type="range" min="20" max="120" value="55"></label><label>Displacer stroke: <b id="dsv">45 mm</b><input id="dstroke" type="range" min="10" max="90" value="45"></label><h3 style="margin-bottom:4px">Animation</h3><label>Animation speed: <b id="spv">1.0x</b><input id="speed" type="range" min="0.2" max="3" value="1" step="0.1"></label></div><div class="card"><div>Ideal theoretical efficiency</div><div id="eta" class="big orange"></div><p>η = 1 − T<sub>C</sub>/T<sub>H</sub></p><div class="stats"><div class="stat">Swept volume<br><b id="sweep"></b></div><div class="stat">Crank angle<br><b id="angle"></b></div><div class="stat">Hot-side T<sub>H</sub><br><b id="hotT"></b></div><div class="stat">Cold-side T<sub>C</sub><br><b id="coldT"></b></div><div class="stat">Gas distribution<br><b id="gasDist"></b></div><div class="stat">Effective gas T<br><b id="temp"></b><br><small>simplified model</small></div><div class="stat">Relative pressure<br><b id="press"></b></div></div></div><div class="note"><b>Learning tool:</b> Use this visualization to connect piston/displacer motion with thermodynamic state changes. Students should still document assumptions and create their own Excel analysis.</div></div></div></div>
+<script>
+const E=document.getElementById('engine'),e=E.getContext('2d'),P=document.getElementById('pv'),p=P.getContext('2d');let a=0,run=true,last=0;
+const $=x=>document.getElementById(x);function vals(){return {th:+$('th').value,tc:+$('tc').value,b:+$('bore').value,s:+$('stroke').value,db:+$('dbore').value,ds:+$('dstroke').value,spd:+$('speed').value}}
+function line(c,x1,y1,x2,y2,w=5,col='#475569'){c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()}
+function engine(v){
+ e.clearRect(0,0,650,400);
+ const r=a*Math.PI/180, phase=Math.PI/2, rd=r+phase;
+ const cx=485,cy=270,Rp=38,Rd=34;
+ // Pistons are explicitly constrained inside the visible cylinders.
+ const py=112+62*(1-Math.cos(r))/2;       // 112..174, power cylinder 55..260
+ const dy=105+82*(1-Math.cos(rd))/2;      // 105..187, displacer cylinder 55..300
+ const pPin={x:cx+Rp*Math.sin(r),y:cy-Rp*Math.cos(r)};
+ const dPin={x:cx+Rd*Math.sin(rd),y:cy-Rd*Math.cos(rd)};
+
+ // Cylinders and thermal regions
+ e.fillStyle='#fee2e2';e.fillRect(55,55,175,245);e.strokeStyle='#334155';e.lineWidth=6;e.strokeRect(55,55,175,245);
+ e.fillStyle='#dbeafe';e.fillRect(290,55,135,205);e.strokeRect(290,55,135,205);
+ e.fillStyle='#ef4444';e.fillRect(58,58,169,35);e.fillStyle='#0284c7';e.fillRect(293,58,129,35);
+ e.fillStyle='#fff';e.font='bold 15px Segoe UI';e.fillText('HOT',125,81);e.fillText('COLD',335,81);
+
+ // Enlarged schematic gas passage and regenerator
+ e.strokeStyle='#475569';e.lineWidth=34;e.beginPath();e.moveTo(226,112);e.lineTo(294,112);e.stroke();
+ e.strokeStyle='#e2e8f0';e.lineWidth=26;e.beginPath();e.moveTo(226,112);e.lineTo(294,112);e.stroke();
+ e.fillStyle='#f59e0b';e.fillRect(249,96,22,32);e.strokeStyle='#92400e';e.lineWidth=2;e.strokeRect(249,96,22,32);
+ e.fillStyle='#334155';e.font='bold 11px Segoe UI';e.fillText('REGENERATOR',222,84);
+ const gasShift=(1+Math.cos(r))/2;
+ for(let k=0;k<9;k++){const u=Math.max(0,Math.min(1,k/8+.12*Math.sin(r)));const gx=229+62*u;let col;if(u<.42){const t=u/.42;col=`rgb(${Math.round(239-20*t)},${Math.round(68+95*t)},${Math.round(68-20*t)})`;}else if(u<.58){col='#f59e0b';}else{const t=(u-.58)/.42;col=`rgb(${Math.round(60-23*t)},${Math.round(150-51*t)},${Math.round(225+10*t)})`;}e.fillStyle=col;e.beginPath();e.arc(gx,112,7,0,Math.PI*2);e.fill();e.strokeStyle='#ffffff';e.lineWidth=1.5;e.stroke();}
+ const towardCold=Math.sin(r)>0;e.fillStyle='#7c3aed';e.font='bold 18px Segoe UI';e.fillText(towardCold?'→':'←',252,151);
+
+ // Displacer and power piston, with clear travel spaces
+ e.fillStyle='#f8fafc';e.fillRect(78,dy,130,62);e.strokeStyle='#64748b';e.lineWidth=4;e.strokeRect(78,dy,130,62);
+ e.fillStyle='#94a3b8';e.fillRect(310,py,95,38);e.strokeStyle='#334155';e.strokeRect(310,py,95,38);
+ // Straight guided piston rods down to crossheads
+ line(e,143,dy+62,143,dy+82,5,'#c2410c');
+ line(e,357,py+38,357,py+58,5,'#0369a1');
+ e.fillStyle='#c2410c';e.beginPath();e.arc(143,dy+82,7,0,Math.PI*2);e.fill();
+ e.fillStyle='#0369a1';e.beginPath();e.arc(357,py+58,7,0,Math.PI*2);e.fill();
+
+ // Flywheel, rotating spokes, and two axial crank planes.
+ e.fillStyle='#e2e8f0';e.beginPath();e.arc(cx,cy,72,0,Math.PI*2);e.fill();e.strokeStyle='#334155';e.lineWidth=8;e.stroke();
+ for(let z=0;z<3;z++){let t=r+z*Math.PI/3;line(e,cx-62*Math.cos(t),cy-62*Math.sin(t),cx+62*Math.cos(t),cy+62*Math.sin(t),5,'#94a3b8')}
+ // Rear-plane displacer linkage is dashed/orange; front-plane power linkage is solid/blue.
+ e.save();e.setLineDash([9,7]);line(e,143,dy+82,dPin.x,dPin.y,5,'#c2410c');e.restore();
+ line(e,357,py+58,pPin.x,pPin.y,6,'#0369a1');
+ e.fillStyle='#c2410c';e.beginPath();e.arc(dPin.x,dPin.y,9,0,Math.PI*2);e.fill();
+ e.fillStyle='#0369a1';e.beginPath();e.arc(pPin.x,pPin.y,9,0,Math.PI*2);e.fill();
+ e.fillStyle='#334155';e.beginPath();e.arc(cx,cy,11,0,Math.PI*2);e.fill();
+
+ // Phase arc and legend explain noninterference.
+ e.strokeStyle='#7c3aed';e.lineWidth=3;e.beginPath();e.arc(cx,cy,51,-r-Math.PI/2,-r);e.stroke();
+ e.fillStyle='#7c3aed';e.font='bold 12px Segoe UI';e.fillText('90°',516,224);
+ e.fillStyle='#c2410c';e.font='bold 12px Segoe UI';e.fillText('--- DISPLACER LINKAGE (REAR PLANE)',56,377);
+ e.fillStyle='#0369a1';e.fillText('── POWER LINKAGE (FRONT PLANE)',337,377);
+
+ e.font='bold 15px Segoe UI';e.fillStyle='#7c2d12';e.fillText('DISPLACER',96,326);e.font='11px Segoe UI';e.fillText('moves working gas',91,343);
+ e.font='bold 15px Segoe UI';e.fillStyle='#075985';e.fillText('POWER PISTON',300,326);e.font='11px Segoe UI';e.fillText('produces useful work',302,343);
+}
+function pv(v){p.clearRect(0,0,650,320);line(p,65,260,600,260,2,'#334155');line(p,65,260,65,35,2,'#334155');p.fillStyle='#475569';p.font='14px Segoe UI';p.fillText('Volume',305,295);p.save();p.translate(22,175);p.rotate(-Math.PI/2);p.fillText('Pressure',0,0);p.restore();p.strokeStyle='#f97316';p.lineWidth=4;p.beginPath();for(let i=0;i<=180;i++){let x=i*2*Math.PI/180,T=v.tc+(v.th-v.tc)*(1+Math.sin(x+Math.PI/2))/2,V=(1+Math.sin(x))/2,Pr=(T/((v.th+v.tc)/2))/(.55+.7*V),X=100+V*450,Y=245-Math.min(2.2,Pr)*85;i?p.lineTo(X,Y):p.moveTo(X,Y)}p.closePath();p.stroke();let r=a*Math.PI/180,T=v.tc+(v.th-v.tc)*(1+Math.sin(r+Math.PI/2))/2,V=(1+Math.sin(r))/2,Pr=(T/((v.th+v.tc)/2))/(.55+.7*V),X=100+V*450,Y=245-Math.min(2.2,Pr)*85;p.fillStyle='#2563eb';p.beginPath();p.arc(X,Y,9,0,Math.PI*2);p.fill();return {T,Pr}}
+function ui(v,s){
+ $('thv').textContent=v.th+' K';$('tcv').textContent=v.tc+' K';$('bv').textContent=v.b+' mm';$('sv').textContent=v.s+' mm';$('dbv').textContent=v.db+' mm';$('dsv').textContent=v.ds+' mm';$('spv').textContent=v.spd.toFixed(1)+'x';
+ $('eta').textContent=((1-v.tc/v.th)*100).toFixed(1)+'%';let vol=Math.PI*(v.b/1000)**2/4*(v.s/1000)*1e6;$('sweep').textContent=vol.toFixed(1)+' cm³';$('angle').textContent=Math.round(a)+'°';$('hotT').textContent=v.th+' K';$('coldT').textContent=v.tc+' K';$('temp').textContent=Math.round(s.T)+' K';$('press').textContent=s.Pr.toFixed(2)+' × mean';const hf=Math.max(0,Math.min(1,(s.T-v.tc)/Math.max(1,v.th-v.tc)));$('gasDist').textContent=Math.round(hf*100)+'% hot / '+Math.round((1-hf)*100)+'% cold';
+ const r=a*Math.PI/180;const gasTowardCold=Math.sin(r)>0;const pistonDown=Math.sin(r)>0;
+ $('stage').textContent=(gasTowardCold?'Working gas shifting toward COLD region':'Working gas shifting toward HOT region')+' • '+(pistonDown?'Power piston moving DOWN':'Power piston moving UP');
+ $('desc').textContent=(gasTowardCold?'The displacer is shifting the sealed gas toward the cooled region. ':'The displacer is shifting the sealed gas toward the heated region. ')+(pistonDown?'Power-cylinder volume is increasing.':'Power-cylinder volume is decreasing.');
+}
+function frame(t){let v=vals();if(run&&last)a=(a+(t-last)*.035*v.spd)%360;last=t;engine(v);let s=pv(v);ui(v,s);requestAnimationFrame(frame)}$('toggle').onclick=()=>{run=!run;$('toggle').textContent=run?'Pause':'Run'};$('reset').onclick=()=>{a=0;run=false;$('toggle').textContent='Run'};requestAnimationFrame(frame);
+</script></body></html>
