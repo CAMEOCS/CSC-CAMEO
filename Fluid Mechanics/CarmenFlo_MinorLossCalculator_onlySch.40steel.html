@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Minor Loss Calculator</title>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+    background:#f4f7fb;
+}
+
+h1{
+    text-align:center;
+    color:#003366;
+}
+
+.container{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,0.15);
+}
+
+label{
+    font-weight:bold;
+    display:block;
+    margin-top:12px;
+}
+
+input,select{
+    width:100%;
+    padding:8px;
+    margin-top:4px;
+}
+
+button{
+    margin-top:20px;
+    padding:12px 18px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+.calculate{
+    background:#0066cc;
+    color:white;
+    border:none;
+}
+
+.clear{
+    background:#888;
+    color:white;
+    border:none;
+}
+
+.result{
+    margin-top:25px;
+    padding:15px;
+    background:#eef5ff;
+    border-radius:8px;
+}
+
+.equation{
+    font-size:18px;
+    text-align:center;
+    margin-bottom:15px;
+    color:#003366;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Minor Loss Calculator</h1>
+
+<div class="equation">
+h<sub>L</sub> = f<sub>T</sub>(L<sub>e</sub>/D)V²/(2g)
+</div>
+
+<label>Unit System</label>
+<select id="units">
+<option value="SI">SI (m/s, m)</option>
+<option value="US">US (ft/s, ft)</option>
+</select>
+
+<label>Pipe Size (Schedule 40)</label>
+<select id="pipeSize"></select>
+
+<label>Velocity</label>
+<input type="number" id="velocity" step="any">
+
+<label>Fitting Type</label>
+<select id="fitting"></select>
+
+<label>Quantity of Fittings</label>
+<input type="number" id="quantity" value="1" min="1">
+
+<button class="calculate" onclick="calculateLoss()">
+Calculate
+</button>
+
+<button class="clear" onclick="clearAll()">
+Clear
+</button>
+
+<div class="result">
+<h3>Results</h3>
+
+<p id="ft"></p>
+<p id="led"></p>
+<p id="kvalue"></p>
+<p id="headloss"></p>
+</div>
+
+</div>
+
+<script>
+
+const pipes = [
+["1/2 in (DN15)",0.026],
+["3/4 in (DN20)",0.024],
+["1 in (DN25)",0.022],
+["1-1/4 in (DN32)",0.021],
+["1-1/2 in (DN40)",0.020],
+["2 in (DN50)",0.019],
+["2-1/2 in (DN65)",0.018],
+["3-3.5 in (DN80-90)",0.017],
+["4 in (DN100)",0.016],
+["5-6 in (DN125-150)",0.015],
+["8 in (DN200)",0.014],
+["10-14 in (DN250-350)",0.013],
+["16-22 in (DN400-550)",0.012],
+["24-36 in (DN600-900)",0.011]
+];
+
+const fittings = {
+
+"Globe Valve":[340,false],
+"Angle Valve":[150,false],
+
+"Gate Valve Fully Open":[8,false],
+"Gate Valve 3/4 Open":[35,false],
+"Gate Valve 1/2 Open":[160,false],
+"Gate Valve 1/4 Open":[900,false],
+
+"Swing Check Valve":[100,false],
+"Ball Check Valve":[150,false],
+
+"Butterfly Valve 2-8in":[45,false],
+"Butterfly Valve 10-14in":[35,false],
+"Butterfly Valve 16-24in":[25,false],
+
+"Foot Valve Poppet":[420,false],
+"Foot Valve Hinged":[75,false],
+
+"Standard Elbow 90":[30,false],
+"Long Radius Elbow 90":[20,false],
+"Street Elbow 90":[50,false],
+
+"Standard Elbow 45":[16,false],
+"Street Elbow 45":[26,false],
+
+"Close Return Bend 180":[50,false],
+
+"Standard Tee Through Run":[20,false],
+"Standard Tee Through Branch":[60,false],
+
+"Entrance - Inward Projecting":[0.78,true],
+"Entrance - Square Edge":[0.50,true],
+"Entrance - Chamfered":[0.25,true],
+
+"Entrance - Rounded r/D=0.02":[0.28,true],
+"Entrance - Rounded r/D=0.04":[0.24,true],
+"Entrance - Rounded r/D=0.06":[0.15,true],
+"Entrance - Rounded r/D=0.10":[0.09,true],
+"Entrance - Rounded r/D>0.15":[0.04,true],
+
+"Exit Loss (All Types)":[1.0,true]
+};
+
+const pipeSelect=document.getElementById("pipeSize");
+
+pipes.forEach(pipe=>{
+    let option=document.createElement("option");
+    option.text=pipe[0];
+    option.value=pipe[1];
+    pipeSelect.add(option);
+});
+
+const fittingSelect=document.getElementById("fitting");
+
+for(let name in fittings){
+    let option=document.createElement("option");
+    option.text=name;
+    option.value=name;
+    fittingSelect.add(option);
+}
+
+function calculateLoss(){
+
+let units=document.getElementById("units").value;
+
+let V=parseFloat(document.getElementById("velocity").value);
+
+let quantity=parseFloat(document.getElementById("quantity").value);
+
+if(isNaN(V)||V<=0){
+    alert("Enter velocity.");
+    return;
+}
+
+let fT=parseFloat(pipeSelect.value);
+
+let selected=fittingSelect.value;
+
+let value=fittings[selected][0];
+let directK=fittings[selected][1];
+
+let g=(units==="SI") ? 9.81 : 32.2;
+
+let K;
+let LeD;
+
+if(directK){
+
+    K=value;
+    LeD="N/A";
+
+}
+else{
+
+    LeD=value;
+    K=fT*LeD;
+
+}
+
+let hL=quantity*K*(V*V)/(2*g);
+
+document.getElementById("ft").innerHTML=
+"<b>Friction Factor (fT):</b> "+fT.toFixed(3);
+
+document.getElementById("led").innerHTML=
+"<b>L<sub>e</sub>/D:</b> "+LeD;
+
+document.getElementById("kvalue").innerHTML=
+"<b>Resistance Coefficient (K):</b> "+
+K.toFixed(3);
+
+document.getElementById("headloss").innerHTML=
+"<b>Total Minor Head Loss:</b> "+
+hL.toFixed(4)+" "+
+(units==="SI" ? "m" : "ft");
+
+}
+
+function clearAll(){
+
+document.getElementById("velocity").value="";
+document.getElementById("quantity").value="1";
+
+document.getElementById("ft").innerHTML="";
+document.getElementById("led").innerHTML="";
+document.getElementById("kvalue").innerHTML="";
+document.getElementById("headloss").innerHTML="";
+}
+
+</script>
+
+</body>
+</html>
